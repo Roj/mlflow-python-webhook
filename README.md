@@ -8,6 +8,8 @@ the updated MLflow pipelines/entrypoints. The package accomplishes this by:
 the entrypoints and *their dependencies*)
 * running mlflow only on the changed pipelines.
 
+![mlflow-webhook demo](demo/pipeline_example.gif)
+
 Effectively, this means that if your MLproject looks something like this:
 
 ```yaml
