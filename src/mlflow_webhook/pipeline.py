@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from termcolor import cprint
 
 
 class Pipeline:
@@ -30,6 +31,8 @@ class Pipeline:
             f"git pull origin {self.branch} && git checkout {self.branch}",
             shell=True,
             cwd=str(self.repo),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
         process.wait()
         if process.returncode > 0:
@@ -43,6 +46,8 @@ class Pipeline:
         return subprocess.Popen(
             f"check-changes {filename} {since_hash} --repo={str(self.repo)} {imports_arg}",
             shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
 
     def get_changed_entrypoints(self, since_hash):
@@ -69,13 +74,19 @@ class Pipeline:
         mlflow_bin = Path.home() / f".conda/envs/{self.conda_env_name}/bin/mlflow"
 
         proc = subprocess.Popen(
-            f"{mlflow_bin} run {self.repo} -e {entrypoint}", shell=True
+            f"{mlflow_bin} run {self.repo} -e {entrypoint}",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
         proc.wait()
 
     def update_conda(self):
         proc = subprocess.Popen(
-            f"conda env update -f {self.conda_env_file};", shell=True
+            f"conda env update -f {self.conda_env_file};",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
         proc.wait()
         if proc.returncode > 0:
@@ -90,16 +101,22 @@ class Pipeline:
         )
         proc.wait()
         if proc.returncode == 1:
+            print(f"[Pipeline] {self.conda_env_file} changed, updating env")
             self.update_conda()
 
     def run_pipeline(self, before_hash):
+        print("[Pipeline] Pulling changes")
         self.pull_changes()
+        print("[Pipeline] Loading new configuration")
         self.load_project_config()
         self.update_conda_if_env_changed(before_hash)
 
         # TODO: if MLproject file itself changed, then run every entrypoint
         # TODO: not really, just load previous MLproject and check with new one
+        print("[Pipeline] Finding updated entrypoints")
         entrypoints = self.get_changed_entrypoints(before_hash)
 
         for entrypoint in entrypoints:
+            cprint(f"[Pipeline] Running pipeline {entrypoint}", "cyan")
             self.mlflow_run(entrypoint)
+        cprint(f"[Pipeline] Finished!", "green")

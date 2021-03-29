@@ -3,6 +3,7 @@ requests."""
 import yaml
 from mlflow_webhook.pipeline import Pipeline
 from pydantic import BaseModel
+from termcolor import cprint
 
 
 class Repository(BaseModel):
@@ -38,10 +39,15 @@ class Event(BaseModel):
 
 
 def hook(event, pipeline):
-    print(f"New event for ref {event.ref}")
-    print(f"Pusher is {event.pusher}")
-    print(f"Commit is {event.head_commit}")
+    cprint(f"[Hook] New event at ref {event.ref} from {event.pusher.name}", "green")
+    print(
+        f"[Hook] Message: \"{event.head_commit.message}\", "
+        f"hash: {event.head_commit.id}"
+    )
     if event.ref == f"refs/heads/{pipeline.branch}":
-        print(f"Running pipeline for hash {event.before}")
-        pipeline.run_pipeline(event.before)
+        cprint(f"[Hook] Running pipeline for hash {event.before}", "green")
+        try:
+            pipeline.run_pipeline(event.before)
+        except Exception as e:
+            cprint(f"Unexpected error while processing pipeline: {e}", "red")
     return {}

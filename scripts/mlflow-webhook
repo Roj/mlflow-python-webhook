@@ -2,6 +2,7 @@
 import argparse
 import logging
 from fastapi import FastAPI
+from termcolor import cprint
 import uvicorn
 import mlflow_webhook
 
@@ -30,4 +31,10 @@ if __name__ == "__main__":
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     logging.debug("Called with args: %s", args)
-    uvicorn.run(app, port=args.port, host=args.ip)
+    cprint(f"Listening at {args.ip}:{args.port}/webhook", "green")
+    cprint(
+        "Please do not use this folder for development! "
+        "I'll be using git operations on it.",
+        "yellow"
+    )
+    uvicorn.run(app, port=args.port, host=args.ip, log_level="warning")
