@@ -1,0 +1,94 @@
+"""Given a file and a commit hash, find if the file or its dependencies
+have changed since that hash. Prints True/False and exits with 1/0 accordingly."""
+import argparse
+import ast
+import importlib
+import logging
+import os
+import sys
+from pathlib import Path
+
+import git
+
+parser = argparse.ArgumentParser(
+    description="Find if a python file or its dependencies have changed since a given commit hash."
+)
+
+parser.add_argument("file", help="Full path of file to check for changes.")
+parser.add_argument("hash", help="Base hash to compare to.")
+parser.add_argument("--debug", help="Log debug statements.", action="store_true")
+parser.add_argument("--repo", help="Path to git repository", default=".")
+
+
+def find_source_imports(filename):
+    """ Find what other files the script `filename` imports.
+    This tries to ignore packages and only return source files,
+    e.g. files from the repo."""
+    filename = Path(filename)
+    with open(filename, "r") as f:
+        code = f.read()
+    # e.g. if script folder is scripts/ we'll need to relativize it
+    package_prefix = ".".join(Path(filename.parent).relative_to(os.getcwd()).parts)
+    logging.debug("Prefix is %s", package_prefix)
+    # To find imports it is not sufficient to use grep 'import',
+    # since imports can be multiline, e.g.:
+    # from module \
+    # import a,b,c
+    # and this would confuse the checker.
+    imported = []
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        name = None
+        if isinstance(node, ast.Import):
+            name = node.names[0].name
+        if isinstance(node, ast.ImportFrom):
+            name = node.module
+        if name is not None:
+            prefixed_name = (
+                ".".join([package_prefix, name]) if len(package_prefix) > 0 else name
+            )
+            logging.debug("Finding %s", prefixed_name)
+            try:
+                spec = importlib.util.find_spec(prefixed_name)
+                imported.append(spec.origin)
+            except ModuleNotFoundError as e:
+                # Probably a regular python package that does not exist
+                # with the prefix (e.g. 'prefix.tensorflow').
+                # It's okay to let it go, since we only care about source
+                # files.
+                logging.debug("ModuleNotFoundError: %s", name)
+                pass
+            except AttributeError as e:
+                # Builtins such as logging
+                logging.debug("AttributeError: %s", name)
+                pass
+
+    logging.debug("Found files %s", imported)
+    return filter(
+        lambda filename: all(s not in filename for s in ["/usr/lib", "site-packages"]),
+        imported,
+    )
+
+
+def files_changed(files, hash, repo_prefix):
+    """Returns true if at least one of the files has changed since
+    commit with hash `hash`."""
+    if len(files) == 0:
+        return False
+    repo = git.Repo(repo_prefix)
+    diffs = repo.head.commit.diff(other=hash, paths=files)
+    return len(diffs) > 0
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    logging.debug("Called with args: %s", args)
+    result = files_changed(
+        list(find_source_imports(args.file)) + [args.file],
+        hash=args.hash,
+        repo_prefix=args.repo,
+    )
+    print(result)
+    sys.exit(result)
