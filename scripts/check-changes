@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Given a file and a commit hash, find if the file or its dependencies
 have changed since that hash. Prints True/False and exits with 1/0 accordingly."""
 import argparse
@@ -24,7 +25,7 @@ def find_source_imports(filename):
     """ Find what other files the script `filename` imports.
     This tries to ignore packages and only return source files,
     e.g. files from the repo."""
-    filename = Path(filename)
+    filename = Path(filename).absolute()
     with open(filename, "r") as f:
         code = f.read()
     # e.g. if script folder is scripts/ we'll need to relativize it
@@ -50,7 +51,10 @@ def find_source_imports(filename):
             logging.debug("Finding %s", prefixed_name)
             try:
                 spec = importlib.util.find_spec(prefixed_name)
-                imported.append(spec.origin)
+                if spec.origin is not None:
+                    imported.append(spec.origin)
+                else:
+                    logging.debug("None origin: %s", name)
             except ModuleNotFoundError as e:
                 # Probably a regular python package that does not exist
                 # with the prefix (e.g. 'prefix.tensorflow').

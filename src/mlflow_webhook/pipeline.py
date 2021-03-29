@@ -5,18 +5,18 @@ import yaml
 
 
 class Pipeline:
-    def __init__(self, config):
-        self.config = config
-        self.gitFolder = Path(self.config["gitFolder"])
+    def __init__(self, branch, repo):
+        self.branch = branch
+        self.repo = Path(repo)
         self.load_project_config()
 
     def load_project_config(self):
         """Get the project's MLproject config, conda env file and env name"""
-        mlflow_config_file = self.gitFolder / "MLproject"
+        mlflow_config_file = self.repo / "MLproject"
         with open(mlflow_config_file) as f:
             self.mlflow_config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
-        self.conda_env_file = self.gitFolder / self.mlflow_config["conda_env"]
+        self.conda_env_file = self.repo / self.mlflow_config["conda_env"]
         with open(self.conda_env_file) as f:
             conda_config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
@@ -26,11 +26,10 @@ class Pipeline:
         """Pull changes on the configured branch of the managed repo"""
         # We can't use GitPython for this since it leaks resources over time,
         # see https://gitpython.readthedocs.io/en/stable/intro.html#leakage-of-system-resources
-        branch = self.config["branch"]
         process = subprocess.Popen(
-            f"git pull origin {branch} && git checkout {branch}",
+            f"git pull origin {self.branch} && git checkout {self.branch}",
             shell=True,
-            cwd=str(self.gitFolder),
+            cwd=str(self.repo),
         )
         process.wait()
         if process.returncode > 0:
@@ -41,7 +40,7 @@ class Pipeline:
         binary and returns the subproces.Popen object"""
         python_bin = Path.home() / f".conda/envs/{self.conda_env_name}/bin/python"
         return subprocess.Popen(
-            f"{python_bin} check_changes.py {filename} {since_hash} --repo={str(self.gitFolder)}",
+            f"check-changes {filename} {since_hash} --repo={str(self.repo)}",
             shell=True,
         )
 
@@ -53,7 +52,7 @@ class Pipeline:
         entrypoint_proc_map = {}
         for entrypoint, spec in self.mlflow_config["entry_points"].items():
             # e.g. python path/to/file --arg --arg2
-            entry_file = (self.gitFolder / spec["command"].split()[1]).absolute()
+            entry_file = (self.repo / spec["command"].split()[1]).absolute()
             proc = self._run_proc_check_changes_repo(entry_file, since_hash)
             entrypoint_proc_map[entrypoint] = proc
 
@@ -69,7 +68,7 @@ class Pipeline:
         mlflow_bin = Path.home() / f".conda/envs/{self.conda_env_name}/bin/mlflow"
 
         proc = subprocess.Popen(
-            f"{mlflow_bin} run {self.gitFolder} -e {entrypoint}", shell=True
+            f"{mlflow_bin} run {self.repo} -e {entrypoint}", shell=True
         )
         proc.wait()
 

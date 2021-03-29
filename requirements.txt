@@ -1,7 +1,0 @@
-fastapi
-gitpython
-pathlib
-pre-commit
-pytest
-PyYAML
-uvicorn
