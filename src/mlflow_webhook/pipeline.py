@@ -36,9 +36,8 @@ class Pipeline:
             raise ValueError(f"Git pull returned code {process.returncode}")
 
     def _run_proc_check_changes_repo(self, filename, since_hash):
-        """Starts a check_changes process on the repo with the project's python
-        binary and returns the subproces.Popen object"""
-        python_bin = Path.home() / f".conda/envs/{self.conda_env_name}/bin/python"
+        """Starts a check_changes process on the repo
+        and returns the subproces.Popen object"""
         return subprocess.Popen(
             f"check-changes {filename} {since_hash} --repo={str(self.repo)}",
             shell=True,

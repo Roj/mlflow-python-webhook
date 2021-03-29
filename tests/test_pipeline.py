@@ -2,8 +2,7 @@ from pathlib import Path
 
 import git
 import pytest
-
-from pipeline import Pipeline
+from mlflow_webhook import Pipeline
 
 TEST_REPO = "https://github.com/Roj/test.git"
 FOLDER_REPO = "test"
