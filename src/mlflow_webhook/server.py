@@ -41,6 +41,7 @@ def hook(event, pipeline):
     print(f"New event for ref {event.ref}")
     print(f"Pusher is {event.pusher}")
     print(f"Commit is {event.head_commit}")
-    if event.ref == f"refs/head/{pipeline.branch}":
+    if event.ref == f"refs/heads/{pipeline.branch}":
+        print(f"Running pipeline for hash {event.before}")
         pipeline.run_pipeline(event.before)
     return {}

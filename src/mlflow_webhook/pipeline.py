@@ -35,11 +35,13 @@ class Pipeline:
         if process.returncode > 0:
             raise ValueError(f"Git pull returned code {process.returncode}")
 
-    def _run_proc_check_changes_repo(self, filename, since_hash):
-        """Starts a check_changes process on the repo
-        and returns the subproces.Popen object"""
+    def _run_proc_check_changes_repo(self, filename, since_hash, check_imports=True):
+        """Starts a check_changes process on the repo and returns the
+        subproces.Popen object. If check_imports is true, also scans
+        the file's dependencies."""
+        imports_arg = "" if check_imports else "--no-check-imports"
         return subprocess.Popen(
-            f"check-changes {filename} {since_hash} --repo={str(self.repo)}",
+            f"check-changes {filename} {since_hash} --repo={str(self.repo)} {imports_arg}",
             shell=True,
         )
 
@@ -83,7 +85,9 @@ class Pipeline:
 
     def update_conda_if_env_changed(self, since_hash):
         """If the conda env file changed, update the env"""
-        proc = self._run_proc_check_changes_repo(self.conda_env_file, since_hash)
+        proc = self._run_proc_check_changes_repo(
+            self.conda_env_file, since_hash, check_imports=False
+        )
         proc.wait()
         if proc.returncode == 1:
             self.update_conda()
@@ -91,7 +95,7 @@ class Pipeline:
     def run_pipeline(self, before_hash):
         self.pull_changes()
         self.load_project_config()
-        self.update_conda_if_env_changed(since_hash)
+        self.update_conda_if_env_changed(before_hash)
 
         # TODO: if MLproject file itself changed, then run every entrypoint
         # TODO: not really, just load previous MLproject and check with new one

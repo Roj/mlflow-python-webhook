@@ -19,6 +19,7 @@ parser.add_argument("file", help="Full path of file to check for changes.")
 parser.add_argument("hash", help="Base hash to compare to.")
 parser.add_argument("--debug", help="Log debug statements.", action="store_true")
 parser.add_argument("--repo", help="Path to git repository", default=".")
+parser.add_argument("--no-check-imports", help="Do not check the file's imports.", action="store_true")
 
 
 def find_source_imports(filename):
@@ -89,8 +90,12 @@ if __name__ == "__main__":
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     logging.debug("Called with args: %s", args)
+    files_to_check = [args.file]
+    if not args.no_check_imports:
+        files_to_check.extend(find_source_imports(args.file))
+
     result = files_changed(
-        list(find_source_imports(args.file)) + [args.file],
+        files_to_check,
         hash=args.hash,
         repo_prefix=args.repo,
     )
